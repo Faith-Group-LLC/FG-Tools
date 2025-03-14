@@ -52,7 +52,7 @@ import clr
 clr.AddReference('System')
 from System.Collections.Generic import List
 from pyrevit import forms, script, revit
-from System.Windows.Controls import SelectionMode  # Add this import
+from System.Windows.Controls import SelectionMode
 
 # ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
 # ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
