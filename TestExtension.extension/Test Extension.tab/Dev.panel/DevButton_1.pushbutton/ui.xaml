@@ -1,0 +1,9 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:av="http://schemas.microsoft.com/expression/blend/2008" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="av"
+        Width="300" Title="Camera Data" ResizeMode="NoResize" SizeToContent="Height" WindowStartupLocation="CenterScreen" ScrollViewer.VerticalScrollBarVisibility="Disabled" WindowStyle="ToolWindow">
+    <StackPanel Margin="20">
+        <Button Content="Collect Camera Data?" Width="200" Height="30" FontSize="16" FontWeight="Heavy" Padding="1" Margin="5" Click="show_output"/>
+        <ListBox Height="100" av:ItemsSource="{av:SampleData ItemCount=5}"/>
+    </StackPanel>
+</Window>
