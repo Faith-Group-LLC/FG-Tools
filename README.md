@@ -1,4 +1,4 @@
-# TestExtension
+# FG Toolbar
 
 ## Overview
 TestExtension is a PyRevit extension that provides various tools and utilities for Revit users. This extension includes sample scripts, hooks, and panels to enhance your Revit experience.
