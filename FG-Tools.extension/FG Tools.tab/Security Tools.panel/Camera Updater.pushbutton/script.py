@@ -161,10 +161,10 @@ camsInProject = camera_Collector()
 ops = [listOption(element) for element in camsInProject]
 
 select_cam = forms.SelectFromList.show(ops,
-                                       title='Select Camera to Modify'
+                                       title='Select Camera to Modify',
                                        multiselect=False,
                                        button_name='Select Camera'
-                                       ) 
+                                       )
 
 print(print_single_camdata(select_cam))
 
