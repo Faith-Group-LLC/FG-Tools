@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
-__title__   = "Button 3"
-__doc__     = """Version = 1.0
-Date    = 15.06.2024
+__title__   = "Camera FOV Generator"
+__doc__     = """Version = 0.1
+Date    = 12.06.2025
 ________________________________________________________________
 Description:
 
-This is the placeholder for a .pushbutton
-You can use it to start your pyRevit Add-In
+Generate Camera views for each FG camera in the model. Derives camera Field of View 
+(FOV) based on the camera's lens length and sensor size.
 
 ________________________________________________________________
 How-To:
@@ -18,14 +18,13 @@ You will be able to override this placeholder.
 
 ________________________________________________________________
 TODO:
-[FEATURE] - Describe Your ToDo Tasks Here
+[FEATURE] - Collect all Cameras in the model
+[FEATURE] - Calculate the FOV for each camera based of the camera's lens length and sensor size
 ________________________________________________________________
 Last Updates:
-- [15.06.2024] v1.0 Change Description
-- [10.06.2024] v0.5 Change Description
-- [05.06.2024] v0.1 Change Description 
+- [12.06.2025] v0.1 First Version of Camera FOV Generator
 ________________________________________________________________
-Author: Erik Frits"""
+Author: Hayden Fulghum"""
 
 # ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
 # ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗
@@ -53,16 +52,22 @@ doc    = __revit__.ActiveUIDocument.Document #type:Document
 # ╩ ╩╩ ╩╩╝╚╝
 #==================================================
 
+def collect_fg_camera_instances(doc):
+    """
+    Collect all family instances in the model whose family name contains 'FG-CAMERA'.
+    Args:
+        doc (Autodesk.Revit.DB.Document): The current Revit document.
+    Returns:
+        List[FamilyInstance]: List of matching family instances.
+    """
+    collector = FilteredElementCollector(doc).OfClass(FamilyInstance)
+    fg_cameras = [fi for fi in collector if 'FG-CAMERA' in fi.Symbol.Family.Name]
+    # Print the element IDs of the collected cameras
+    for cam in fg_cameras:
+        print('FG-CAMERA ElementId:', cam.Id)
+    return fg_cameras
 
-
-
-#🤖 Automate Your Boring Work Here
-
-
-
-
+collect_fg_camera_instances(doc)
 
 #==================================================
 #🚫 DELETE BELOW
-from Snippets._customprint import kit_button_clicked    # Import Reusable Function from 'lib/Snippets/_customprint.py'
-kit_button_clicked(btn_name=__title__)                  # Display Default Print Message
