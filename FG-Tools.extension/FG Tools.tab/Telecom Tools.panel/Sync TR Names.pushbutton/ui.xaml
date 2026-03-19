@@ -1,0 +1,191 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Sync TR Names"
+        Width="1080"
+        Height="760"
+        MinWidth="920"
+        MinHeight="620"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResize"
+        Background="#F6F3EA">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="2*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="6"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Background="#E6DED0" CornerRadius="8" Padding="14" Margin="0,0,0,12">
+            <TextBlock TextWrapping="Wrap" FontSize="13">
+                Select one or more outdated telecom room values, assign each to a valid Area Number from the LAWA serving zones workset, and review the preview below before applying.
+            </TextBlock>
+        </Border>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2.2*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="2.8*"/>
+            </Grid.ColumnDefinitions>
+
+            <GroupBox Grid.Column="0" Header="Outdated Values Found" Padding="10">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Margin="0,0,0,8" Foreground="#5B554C" Text="Use Ctrl or Shift to select multiple values."/>
+                    <ListBox x:Name="oldValuesList"
+                             DisplayMemberPath="DisplayText"
+                             SelectionMode="Extended"
+                             BorderThickness="1"
+                             BorderBrush="#C5BBA8"/>
+                </DockPanel>
+            </GroupBox>
+
+            <StackPanel Grid.Column="1" Margin="14,30,14,0" VerticalAlignment="Top" Width="220">
+                <TextBlock FontWeight="SemiBold" Text="Replacement Value"/>
+                <ComboBox x:Name="newValueCombo" Margin="0,6,0,16" Height="28"/>
+                <Button Content="Add / Update Mapping"
+                        Height="34"
+                        Margin="0,0,0,10"
+                        Click="add_mapping_click"/>
+                <Button Content="Remove Selected"
+                        Height="34"
+                        Margin="0,0,0,10"
+                        Click="remove_mapping_click"/>
+                <Button Content="Clear All"
+                        Height="34"
+                        Click="clear_mappings_click"/>
+            </StackPanel>
+
+            <GroupBox Grid.Column="2" Header="Mappings To Apply" Padding="10">
+                <ListView x:Name="mappingList" SelectionMode="Extended" BorderThickness="1" BorderBrush="#C5BBA8">
+                    <ListView.View>
+                        <GridView>
+                            <GridViewColumn Header="Old Value" Width="170" DisplayMemberBinding="{Binding OldValue}"/>
+                            <GridViewColumn Header="New Value" Width="170" DisplayMemberBinding="{Binding NewValue}"/>
+                            <GridViewColumn Header="Detected Matches" Width="130" DisplayMemberBinding="{Binding MatchCount}"/>
+                        </GridView>
+                    </ListView.View>
+                </ListView>
+            </GroupBox>
+        </Grid>
+
+        <TextBlock x:Name="statusText"
+                   Grid.Row="2"
+                   Margin="2,12,2,10"
+                   FontWeight="SemiBold"
+                   Foreground="#3E5C46"/>
+
+        <GridSplitter Grid.Row="3"
+                  Height="6"
+                  HorizontalAlignment="Stretch"
+                  VerticalAlignment="Center"
+                  Background="#C5BBA8"
+                  ShowsPreview="True"
+                  ResizeDirection="Rows"
+                  ResizeBehavior="PreviousAndNext"/>
+
+        <Grid Grid.Row="4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1*"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="1.25*"/>
+            </Grid.ColumnDefinitions>
+
+            <GroupBox Grid.Column="0" Header="Selected Value Context Matches" Padding="10">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock x:Name="contextSummaryText"
+                               Grid.Row="0"
+                               Margin="0,0,0,8"
+                               Foreground="#5B554C"
+                               TextWrapping="Wrap"/>
+
+                    <ListView x:Name="contextMatchList"
+                              Grid.Row="1"
+                              BorderThickness="1"
+                              BorderBrush="#C5BBA8"
+                              ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                              ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="Old Value" Width="110" DisplayMemberBinding="{Binding OldValue}"/>
+                                <GridViewColumn Header="Type" Width="130" DisplayMemberBinding="{Binding Kind}"/>
+                                <GridViewColumn Header="Context" Width="110" DisplayMemberBinding="{Binding Context}"/>
+                                <GridViewColumn Header="Current Value (Full)" Width="360" DisplayMemberBinding="{Binding CurrentValue}"/>
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                </Grid>
+            </GroupBox>
+
+            <GroupBox Grid.Column="2" Header="Mapping Preview" Padding="10">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock x:Name="previewSummaryText"
+                               Grid.Row="0"
+                               Margin="0,0,0,8"
+                               Foreground="#5B554C"
+                               TextWrapping="Wrap"/>
+
+                    <ListView x:Name="matchPreviewList"
+                              Grid.Row="1"
+                              BorderThickness="1"
+                              BorderBrush="#C5BBA8"
+                              ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                              ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="Type" Width="140" DisplayMemberBinding="{Binding Kind}"/>
+                                <GridViewColumn Header="Context" Width="120" DisplayMemberBinding="{Binding Context}"/>
+                                <GridViewColumn Header="Current Value (Full)" Width="260" DisplayMemberBinding="{Binding CurrentValue}"/>
+                                <GridViewColumn Header="Updated Value (Full)" Width="260" DisplayMemberBinding="{Binding UpdatedValue}"/>
+                                <GridViewColumn Header="Mapped Values" Width="180" DisplayMemberBinding="{Binding Replacements}"/>
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                </Grid>
+            </GroupBox>
+        </Grid>
+
+        <Grid Grid.Row="5" Margin="0,14,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                <CheckBox x:Name="applyDraftingContentSyncCheckBox"
+                          Margin="0,0,0,6"
+                          IsChecked="False">
+                    <TextBlock>
+                        <Run Text="OPTIONAL:" FontWeight="Bold"/>
+                        <Run Text=" apply mappings to view contents (text notes + editable text parameters)"/>
+                    </TextBlock>
+                </CheckBox>
+                <CheckBox x:Name="exportReportCheckBox"
+                          Margin="0,0,0,6"
+                          IsChecked="True">
+                    <TextBlock>
+                        <Run Text="OPTIONAL:" FontWeight="Bold"/>
+                        <Run Text=" export report: Old vs. New TR Names"/>
+                    </TextBlock>
+                </CheckBox>
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Apply" Width="110" Height="34" Margin="0,0,10,0" Click="apply_click"/>
+            <Button Content="Cancel" Width="110" Height="34" Click="cancel_click"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

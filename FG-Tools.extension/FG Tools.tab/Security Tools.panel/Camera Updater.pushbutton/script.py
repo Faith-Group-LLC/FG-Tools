@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__title__   = "Camera Button 1"
+__title__   = "Camera Updater"
 __doc__     = """Version = 1.0
 Date    = 15.06.2024
 ________________________________________________________________
@@ -51,9 +51,9 @@ from System.Collections.Generic import List
 # ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
 #  ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝
 #==================================================
-app    = __revit__.Application
-uidoc  = __revit__.ActiveUIDocument
-doc    = __revit__.ActiveUIDocument.Document #type:Document
+app    = __revit__.Application # type: ignore
+uidoc  = __revit__.ActiveUIDocument # type: ignore
+doc    = __revit__.ActiveUIDocument.Document # type: ignore #type:Document
 targetFamilyName = "FG-CAMERA"
 xamlfile = script.get_bundle_file('ui.xaml')
 
