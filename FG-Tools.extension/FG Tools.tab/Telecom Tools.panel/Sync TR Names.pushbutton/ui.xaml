@@ -164,6 +164,15 @@
             </Grid.ColumnDefinitions>
 
             <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                <CheckBox x:Name="excludeTwcTsaCheckBox"
+                          Margin="0,0,0,6"
+                          IsChecked="False"
+                          Click="exclude_twc_tsa_click">
+                    <TextBlock>
+                        <Run Text="OPTIONAL:" FontWeight="Bold"/>
+                        <Run Text=" exclude views or sheets containing TWC or TSA from mappings"/>
+                    </TextBlock>
+                </CheckBox>
                 <CheckBox x:Name="applyDraftingContentSyncCheckBox"
                           Margin="0,0,0,6"
                           IsChecked="False">

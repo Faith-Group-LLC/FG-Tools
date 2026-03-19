@@ -22,6 +22,7 @@ from Autodesk.Revit.DB import (
     TextNote,
     Transaction,
     ViewDrafting,
+    ViewSheet,
     Viewport,
 )
 
@@ -37,12 +38,34 @@ logger = script.get_logger()
 
 WORKSET_NAME = "Electronics-TELECOM LAWA SERVING ZONES"
 TARGET_PREFIX = "T5-"
+EXCLUDED_TERMS = ("TWC", "TSA")
 
 
 def matches_target_scope(text_value):
     if not text_value:
         return False
     return TARGET_PREFIX in text_value.upper()
+
+
+def contains_excluded_terms(text_value):
+    if not text_value:
+        return False
+    upper_value = text_value.upper()
+    return any(term in upper_value for term in EXCLUDED_TERMS)
+
+
+def build_target_search_text(*values):
+    return " | ".join([value for value in values if value])
+
+
+def should_exclude_target(target, exclude_special_cases):
+    if not exclude_special_cases:
+        return False
+    return contains_excluded_terms(target.get("search_text", ""))
+
+
+def filter_targets(targets, exclude_special_cases):
+    return [target for target in targets if not should_exclude_target(target, exclude_special_cases)]
 
 
 class CandidateItem(object):
@@ -123,8 +146,15 @@ def collect_sync_targets():
         if getattr(view, "IsTemplate", False):
             continue
 
+        sheet_name_param = sheet.get_Parameter(BuiltInParameter.SHEET_NAME)
+        sheet_name = ""
+        if sheet_name_param and sheet_name_param.StorageType == StorageType.String:
+            sheet_name = sheet_name_param.AsString() or ""
+
+        view_name = view.Name or ""
+
         if isinstance(view, ViewDrafting):
-            drafting_name = view.Name or ""
+            drafting_name = view_name
             if matches_target_scope(drafting_name):
                 targets.append(
                     {
@@ -132,6 +162,7 @@ def collect_sync_targets():
                         "element": view,
                         "value": drafting_name,
                         "context": "Sheet {0}".format(sheet.SheetNumber),
+                        "search_text": build_target_search_text(drafting_name, view_name, sheet_name),
                     }
                 )
 
@@ -149,6 +180,33 @@ def collect_sync_targets():
                 "element": view,
                 "value": title_value,
                 "context": "Sheet {0}".format(sheet.SheetNumber),
+                "search_text": build_target_search_text(title_value, view_name, sheet_name),
+            }
+        )
+
+    # Collect sheet names
+    seen_sheet_ids = set()
+    sheets = FilteredElementCollector(doc).OfClass(ViewSheet).ToElements()
+    for sheet in sheets:
+        if sheet.Id.IntegerValue in seen_sheet_ids:
+            continue
+        seen_sheet_ids.add(sheet.Id.IntegerValue)
+
+        name_param = sheet.get_Parameter(BuiltInParameter.SHEET_NAME)
+        if not name_param or name_param.StorageType != StorageType.String:
+            continue
+
+        sheet_name = name_param.AsString() or ""
+        if not matches_target_scope(sheet_name):
+            continue
+
+        targets.append(
+            {
+                "kind": "Sheet Name",
+                "element": sheet,
+                "value": sheet_name,
+                "context": "Sheet {0}".format(sheet.SheetNumber),
+                "search_text": build_target_search_text(sheet_name),
             }
         )
 
@@ -249,6 +307,7 @@ def find_matches(targets, mappings):
 def apply_updates(matches):
     updated_drafting_views = 0
     updated_view_titles = 0
+    updated_sheet_names = 0
     failures = []
     adjustments = []
     processed_keys = set()
@@ -310,6 +369,14 @@ def apply_updates(matches):
                     else:
                         failures.append("Skipped read-only title on view Id {0}".format(element.Id.IntegerValue))
                         continue
+                elif kind == "Sheet Name":
+                    name_param = element.get_Parameter(BuiltInParameter.SHEET_NAME)
+                    if name_param and not name_param.IsReadOnly:
+                        name_param.Set(new_value)
+                        updated_sheet_names += 1
+                    else:
+                        failures.append("Skipped read-only sheet name on ViewSheet Id {0}".format(element.Id.IntegerValue))
+                        continue
                 processed_keys.add(key)
             except Exception as ex:
                 failures.append("{0} (Id {1}): {2}".format(kind, element.Id.IntegerValue, ex))
@@ -319,6 +386,7 @@ def apply_updates(matches):
     return {
         "updated_drafting_views": updated_drafting_views,
         "updated_view_titles": updated_view_titles,
+        "updated_sheet_names": updated_sheet_names,
         "failures": failures,
         "adjustments": adjustments,
     }
@@ -435,6 +503,7 @@ def export_mappings_report(results):
     lines.append("-" * 80)
     lines.append("- Updated drafting view names: {0}".format(results.get("updated_drafting_views", 0)))
     lines.append("- Updated view titles on sheet: {0}".format(results.get("updated_view_titles", 0)))
+    lines.append("- Updated sheet names: {0}".format(results.get("updated_sheet_names", 0)))
 
     primary_failures = results.get("failures", [])
     lines.append("- Primary failures/skipped: {0}".format(len(primary_failures)))
@@ -538,24 +607,40 @@ class MappingWindow(forms.WPFWindow):
     def __init__(self, candidates, valid_numbers, targets):
         forms.WPFWindow.__init__(self, "ui.xaml")
 
-        self.targets = targets
+        self.all_targets = targets
+        self.targets = []
         self.valid_numbers = valid_numbers
-        self.candidate_counts = {candidate["token"]: candidate["count"] for candidate in candidates}
-        self.candidate_items = [CandidateItem(candidate["token"], candidate["count"]) for candidate in candidates]
+        self.all_candidates = candidates
+        self.candidate_counts = {}
+        self.candidate_items = []
         self.mapping_lookup = {}
         self.results = None
 
-        self.oldValuesList.ItemsSource = self.candidate_items
         self.oldValuesList.SelectionChanged += self.old_values_selection_changed
         self.newValueCombo.ItemsSource = valid_numbers
-        self.statusText.Text = "{0} outdated values found | {1} valid Area Numbers".format(
-            len(self.candidate_items),
-            len(valid_numbers),
-        )
         self.contextSummaryText.Text = "Select one or more outdated values to preview full current names/titles."
         self.contextMatchList.ItemsSource = []
         self.previewSummaryText.Text = "Select one or more outdated values, choose a replacement, then click Add / Update Mapping."
         self.matchPreviewList.ItemsSource = []
+        self.refresh_targets_and_candidates()
+
+    def exclude_special_cases_enabled(self):
+        return bool(self.excludeTwcTsaCheckBox.IsChecked)
+
+    def refresh_targets_and_candidates(self):
+        self.targets = filter_targets(self.all_targets, self.exclude_special_cases_enabled())
+        candidates = collect_outdated_candidates(self.targets, self.valid_numbers)
+        self.candidate_counts = {candidate["token"]: candidate["count"] for candidate in candidates}
+        self.candidate_items = [CandidateItem(candidate["token"], candidate["count"]) for candidate in candidates]
+
+        invalid_keys = [old_value for old_value in self.mapping_lookup.keys() if old_value not in self.candidate_counts]
+        for old_value in invalid_keys:
+            del self.mapping_lookup[old_value]
+
+        self.oldValuesList.ItemsSource = self.candidate_items
+        self.refresh_mapping_list()
+        self.update_preview()
+        self.update_context_preview()
 
     def get_selected_old_items(self):
         return [item for item in self.oldValuesList.SelectedItems]
@@ -604,7 +689,7 @@ class MappingWindow(forms.WPFWindow):
             self.previewSummaryText.Text = "Previewing full current and updated values for all matches."
             self.matchPreviewList.ItemsSource = build_preview_rows(matches)
         else:
-            self.previewSummaryText.Text = "Current mappings do not affect any on-sheet view titles or drafting view names."
+            self.previewSummaryText.Text = "Current mappings do not affect any eligible on-sheet view titles, drafting view names, or sheet names."
             self.matchPreviewList.ItemsSource = []
 
     def update_context_preview(self):
@@ -662,6 +747,9 @@ class MappingWindow(forms.WPFWindow):
     def old_values_selection_changed(self, sender, args):
         self.update_context_preview()
 
+    def exclude_twc_tsa_click(self, sender, args):
+        self.refresh_targets_and_candidates()
+
     def apply_click(self, sender, args):
         mappings = self.get_clean_mappings()
         if not mappings:
@@ -671,7 +759,7 @@ class MappingWindow(forms.WPFWindow):
         matches = find_matches(self.targets, mappings)
         if not matches:
             forms.alert(
-                "Current mappings do not affect any on-sheet view titles or drafting view names.",
+                "Current mappings do not affect any eligible on-sheet view titles, drafting view names, or sheet names.",
                 title=__title__,
                 warn_icon=True,
             )
@@ -717,7 +805,7 @@ if __name__ == "__main__":
     candidates = collect_outdated_candidates(targets, valid_numbers)
     if not candidates:
         forms.alert(
-            "No outdated telecom room values were found in on-sheet view titles or drafting view names.",
+            "No outdated telecom room values were found in on-sheet view titles, drafting view names, or sheet names.",
             title=__title__,
             warn_icon=True,
         )
@@ -731,6 +819,7 @@ if __name__ == "__main__":
     logger.success("Sync complete.")
     print("Updated drafting view names: {0}".format(window.results["updated_drafting_views"]))
     print("Updated view titles on sheet: {0}".format(window.results["updated_view_titles"]))
+    print("Updated sheet names: {0}".format(window.results.get("updated_sheet_names", 0)))
 
     if "content_sync" in window.results:
         content_sync = window.results["content_sync"]
