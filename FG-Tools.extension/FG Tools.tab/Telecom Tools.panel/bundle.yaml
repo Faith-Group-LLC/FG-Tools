@@ -1,6 +1,7 @@
 layout:
   - Areas Sync
   - Sync TR Names
+  - Zone Schedulizer
   - URLButtonExample
-  - StackExample
+  - LocationToolsStack
   - PulldownExample

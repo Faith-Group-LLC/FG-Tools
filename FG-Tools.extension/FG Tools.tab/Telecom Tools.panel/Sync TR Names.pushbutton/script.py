@@ -1,15 +1,25 @@
 # -*- coding: utf-8 -*-
 __title__ = "Sync TR Names"
 __doc__ = """
-Version = 3.0
-Date = 19.03.2026
+Version = 3.1
+Date = 02.04.2026
 _____________________________________________________________________
 Description:
-Find and update outdated Telecom Room values in on-sheet
-view titles and on-sheet drafting view names.
+Find and synchronize Telecom Room names in drafting view names,
+view titles on sheet, sheet names, and optionally drafting view content.
 
-The source of truth is Area `Number` values from the workset:
-Electronics-TELECOM LAWA SERVING ZONES
+Source of truth:
+- Area Number values from workset: Electronics-TELECOM LAWA SERVING ZONES
+
+Workflow summary:
+- Collect candidate TR values from on-sheet content
+- Build and review value mappings in UI
+- Apply updates with transaction-safe write operations
+- Optionally export a mapping report
+
+Version History:
+- [02.04.2026] v3.1 - Updated description and metadata documentation.
+- [19.03.2026] v3.0 - Initial release of Sync TR Names workflow.
 _____________________________________________________________________
 Author: Hayden Fulghum
 """
