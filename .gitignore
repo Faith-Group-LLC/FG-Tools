@@ -215,3 +215,9 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 sync_tr_names_state.json
+
+# Local extension workspaces
+EF-Tools.extension/
+mcp-server-for-revit-python.extension/
+PyRevitPlus.extension/
+pyrevitplus.extension/
