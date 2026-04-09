@@ -109,6 +109,42 @@ def check_OnetoOne(barbell, intersecting_doors):
     if len(intersecting_doors) > 1:
         raise Exception("More than one door found for FG-ACS DOOR BARBELL instance: {}".format(barbell.Id))
 
+class IntersectingPairsReview(forms.WPFWindow):
+    def __init__(self, pairs_lines):
+        forms.WPFWindow.__init__(self, 'review_dialog.xaml')
+        self.summary_label.Text = "{} intersecting pair(s) found:".format(len(pairs_lines))
+        for line in pairs_lines:
+            self.pairs_list.Items.Add(line)
+        self.confirmed = False
+        self.proceed_button.Click += self.on_proceed
+        self.abort_button.Click += self.on_abort
+
+    def on_proceed(self, sender, e):
+        self.confirmed = True
+        self.Close()
+
+    def on_abort(self, sender, e):
+        self.confirmed = False
+        self.Close()
+
+def get_string_parameter_value(element, parameter_name):
+    """Safely read string parameter value for display/reporting purposes."""
+    param = element.LookupParameter(parameter_name)
+    if not param:
+        return "<missing>"
+
+    value = param.AsString()
+    if value is None:
+        value = param.AsValueString()
+    return value if value else "<empty>"
+
+def get_element_bounding_box(element, view):
+    """Return a valid bounding box when possible, falling back to model-space bbox."""
+    bbox = element.get_BoundingBox(view)
+    if bbox is None:
+        bbox = element.get_BoundingBox(None)
+    return bbox
+
 """
 Checks for intersections between doors and barbells.
 If more than one door intersects with a barbell, chooses the closest door.
@@ -118,15 +154,22 @@ def check_intersection(doc, check_OnetoOne, linked_doc, doors, barbells):
     intersecting_pairs = []
     for barbell in barbells:
         intersecting_doors = []
-        barbell_bbox = barbell.get_BoundingBox(doc.ActiveView)
+        barbell_bbox = get_element_bounding_box(barbell, doc.ActiveView)
+        if barbell_bbox is None:
+            continue
+
+        barbell_outline = Outline(barbell_bbox.Min, barbell_bbox.Max)
         for door in doors:
-            door_bbox = door.get_BoundingBox(linked_doc.ActiveView)
-            if Outline(barbell_bbox.Min, barbell_bbox.Max).Intersects(Outline(door_bbox.Min, door_bbox.Max), 0.0):
-                intersecting_doors.append(door)
+            door_bbox = get_element_bounding_box(door, linked_doc.ActiveView)
+            if door_bbox is None:
+                continue
+
+            if barbell_outline.Intersects(Outline(door_bbox.Min, door_bbox.Max), 0.0):
+                intersecting_doors.append((door, door_bbox))
         
         if intersecting_doors:
             # Choose the closest door if more than one intersects
-            closest_door = min(intersecting_doors, key=lambda door: barbell_bbox.Min.DistanceTo(door.get_BoundingBox(linked_doc.ActiveView).Min))
+            closest_door, _ = min(intersecting_doors, key=lambda pair: barbell_bbox.Min.DistanceTo(pair[1].Min))
             intersecting_pairs.append((closest_door, barbell))
     return intersecting_pairs
 
@@ -135,10 +178,13 @@ if selected_model_names:
     linked_docs = [model.GetLinkDocument() for model in selected_models]
 
     # Find all Door elements in the selected linked models
+    doors_by_doc = {}
     doors = []
     for linked_doc in linked_docs:
         door_collector = FilteredElementCollector(linked_doc).OfCategory(BuiltInCategory.OST_Doors).WhereElementIsNotElementType()
-        doors.extend([door for door in door_collector])
+        doc_doors = [door for door in door_collector]
+        doors_by_doc[linked_doc] = doc_doors
+        doors.extend(doc_doors)
 
     # Find all instances of the specified barbell family in the host document
     barbell_collector = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_SecurityDevices).OfClass(FamilyInstance)
@@ -156,13 +202,26 @@ if selected_model_names:
     # Create sets of intersecting Door and FG-ACS DOOR BARBELL pairs
     intersecting_pairs = []
     for linked_doc in linked_docs:
-        intersecting_pairs.extend(check_intersection(doc, check_OnetoOne, linked_doc, doors, barbells))
+        intersecting_pairs.extend(check_intersection(doc, check_OnetoOne, linked_doc, doors_by_doc.get(linked_doc, []), barbells))
 
     # Show a dialog with the intersecting pairs found and allow user to confirm selection
     if intersecting_pairs:
-        pairs_message = "\n".join(["Door ID: {} - Barbell ID: {}".format(door.Id, barbell.Id) for door, barbell in intersecting_pairs])
-        confirmed = forms.alert(pairs_message, title="Intersecting Pairs Found", yes=True, no=True)
-        if not confirmed:
+        pairs_lines = []
+        for door, barbell in intersecting_pairs:
+            door_mark = get_string_parameter_value(door, "Mark")
+            current_barbell_door_id = get_string_parameter_value(barbell, "DOOR ID")
+            pairs_lines.append(
+                "Door ID: {} | Door Mark: {} -> Barbell ID: {} | Current DOOR ID: {}".format(
+                    door.Id,
+                    door_mark,
+                    barbell.Id,
+                    current_barbell_door_id
+                )
+            )
+
+        review_dialog = IntersectingPairsReview(pairs_lines)
+        review_dialog.ShowDialog()
+        if not review_dialog.confirmed:
             forms.alert("Operation cancelled by user.", title="Cancelled")
             script.exit()
     else:
