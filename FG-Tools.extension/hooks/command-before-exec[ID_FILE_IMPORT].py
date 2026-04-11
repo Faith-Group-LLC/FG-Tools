@@ -4,8 +4,8 @@ from pyrevit import revit, EXEC_PARAMS
 
 #--------------------------------------------------
 #📦 Variables
-sender = __eventsender__ # UIApplication
-args   = __eventargs__   # Autodesk.Revit.UI.Events.BeforeExecutedEventArgs
+sender = __eventsender__ # type: ignore # UIApplication
+args   = __eventargs__   # type: ignore # Autodesk.Revit.UI.Events.BeforeExecutedEventArgs
 doc = revit.doc
 
 #--------------------------------------------------

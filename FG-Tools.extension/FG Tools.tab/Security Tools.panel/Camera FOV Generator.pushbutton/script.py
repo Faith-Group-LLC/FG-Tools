@@ -36,18 +36,18 @@ from Autodesk.Revit.UI import TaskDialog, TaskDialogCommonButtons
 #.NET Imports
 import clr
 clr.AddReference('System')
-from System.Collections.Generic import List
+from System.Collections.Generic import List # type: ignore
 from pyrevit import forms, script, revit
-from System.Windows.Controls import SelectionMode  # Add this import
+from System.Windows.Controls import SelectionMode  # type: ignore # Add this import
 
 
 # ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
 # ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
 #  ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝
 #==================================================
-app    = __revit__.Application
-uidoc  = __revit__.ActiveUIDocument
-doc    = __revit__.ActiveUIDocument.Document #type:Document
+app    = __revit__.Application # type: ignore
+uidoc  = __revit__.ActiveUIDocument # type: ignore
+doc    = __revit__.ActiveUIDocument.Document # type: ignore #type:Document
 
 
 # ╔╦╗╔═╗╦╔╗╔

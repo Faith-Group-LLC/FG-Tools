@@ -38,7 +38,7 @@ import math
 #.NET Imports
 import clr
 clr.AddReference('System')
-from System.Collections.Generic import List
+from System.Collections.Generic import List # type: ignore
 
 from pyrevit import script, forms
 

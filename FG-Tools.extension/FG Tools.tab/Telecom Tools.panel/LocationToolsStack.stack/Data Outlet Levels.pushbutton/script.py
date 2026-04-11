@@ -37,7 +37,7 @@ from pyrevit import revit, forms, script
 
 import clr
 clr.AddReference("System")
-from System.Collections.Generic import List
+from System.Collections.Generic import List # type: ignore
 
 # Shared FG-Tools utilities
 from fg_constants import PARAM_LEVEL_ID, SCHEDULE_LEVEL_PARAM_CANDIDATES
