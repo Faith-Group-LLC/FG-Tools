@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find \"C:\\\\Users\\\\HaydenFulghum\\\\AppData\\\\Roaming\\\\FG-Tools\\\\.claude\\\\worktrees\\\\epic-goldberg/FG-Tools.extension\" -name \"script.py\" -type f -exec grep -l \"DELETE BELOW\" {} \\\\;)",
+      "Bash(find \"C:\\\\Users\\\\HaydenFulghum\\\\AppData\\\\Roaming\\\\FG-Tools\\\\.claude\\\\worktrees\\\\epic-goldberg/FG-Tools.extension\" -name \"script.py\" -exec wc -l {} \\\\;)",
+      "WebFetch(domain:pyrevitlabs.notion.site)",
+      "WebFetch(domain:pyrevit1.readthedocs.io)",
+      "WebSearch",
+      "WebFetch(domain:docs.pyrevitlabs.io)",
+      "WebFetch(domain:deepwiki.com)",
+      "WebFetch(domain:discourse.pyrevitlabs.io)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:archilabs.ai)"
+    ]
+  }
+}

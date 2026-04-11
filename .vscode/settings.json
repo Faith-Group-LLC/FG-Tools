@@ -1,0 +1,12 @@
+{
+    "python.analysis.extraPaths": [
+        "C:\\Users\\HaydenFulghum\\AppData\\Roaming\\RevitAPI stubs\\RVT 22",
+        "C:\\Users\\HaydenFulghum\\AppData\\Roaming\\RevitAPI stubs\\RVT 23",
+        "C:\\Users\\HaydenFulghum\\AppData\\Roaming\\RevitAPI stubs\\RVT 24",
+        "C:\\Users\\HaydenFulghum\\AppData\\Roaming\\RevitAPI stubs\\RVT 25",
+        "C:\\Users\\HaydenFulghum\\AppData\\Roaming\\pyRevit-Master\\pyrevitlib",
+        "C:\\Program Files\\pyRevit-Master\\pyrevitlib",
+        "C:\\Users\\HaydenFulghum\\AppData\\Roaming\\RevitAPI stubs\\ironpython-stubs\\release\\stubs.min",
+        "./FG-Tools.extension/lib"
+    ]
+}
