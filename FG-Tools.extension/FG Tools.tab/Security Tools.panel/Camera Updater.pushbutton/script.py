@@ -33,18 +33,14 @@ Author: Erik Frits"""
 #==================================================
 from Autodesk.Revit.DB import *
 
+import math
+
 #.NET Imports
 import clr
 clr.AddReference('System')
-clr.AddReference('System.Windows.Forms')
-clr.AddReference('IronPython.Wpf')
-
-import wpf
-from System import Windows
-from pyrevit import script,forms,EXEC_PARAMS
-from pyrevit import UI
-
 from System.Collections.Generic import List
+
+from pyrevit import script, forms
 
 
 # ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
@@ -62,6 +58,15 @@ xamlfile = script.get_bundle_file('ui.xaml')
 # ║║║╠═╣║║║║
 # ╩ ╩╩ ╩╩╝╚╝
 #==================================================
+
+def _get_camera_param(element, param_name):
+    """Safely read a string parameter; returns '<missing>' if absent."""
+    param = element.LookupParameter(param_name)
+    if not param:
+        return "<missing>"
+    value = param.AsString()
+    return value if value else "<empty>"
+
 
 # Function to collect FG camera elements
 def camera_Collector():
@@ -82,69 +87,26 @@ def camera_Collector():
         .ToElements()
     return cam_collector
 
-# Function to generate and concatenate a string of camera element IDs, Cam #s, Location Data and Rotation Data
-def print_camdata(collector):
-    prompt = "The security cameras in the current model are:\n"
-    for element in collector:
-        if isinstance(element, FamilyInstance):
-            # Extract Element Id
-            camId = element.Id
-            # Extract Camera Number
-            levelId = element.LookupParameter('LEVEL ID').AsString()
-            buildingSector = element.LookupParameter('BUILDING SECTOR').AsString()
-            camMark = element.LookupParameter('Mark').AsString()
-            camNum = "{}-{}-{}".format(
-                    levelId, buildingSector, camMark
-                )
-            # Extract the location of the FamilyInstance
-            location = element.Location
-            if isinstance(location, LocationPoint):
-                point = location.Point
-                transform = location.Rotation
-                # Convert rotation from radians to degrees
-                rotation_degrees = transform * (180 / 3.14159265358979)
-                # Format and print the location and rotation details using .format() for IronPython compatibility
-                prompt += "Id: {}, Cam#: {}, Name: {}, Location: (X: {:.2f}, Y: {:.2f}, Z: {:.2f}), Rotation: {:.2f} degrees\n".format(
-                    camId, camNum, element.Name, point.X, point.Y, point.Z, rotation_degrees
-                )
-            else:
-                # If location is not a point, handle accordingly
-                prompt += "Name: {}, Location: Not a point, Rotation: Not available\n".format(element.Name)
-        else:
-            # Handle cases where the element is not a FamilyInstance
-            prompt += "Element ID: {}, Type: {}\n".format(element.Id, element.GetType().Name)
-    return prompt
-
-# Function to generate a string of the selected cameras data
+# Function to generate a string of the selected camera's data
 def print_single_camdata(element):
     if isinstance(element, FamilyInstance):
-        # Extract Element Id
-        camId = element.Id
-        # Extract Camera Number
-        levelId = element.LookupParameter('LEVEL ID').AsString()
-        buildingSector = element.LookupParameter('BUILDING SECTOR').AsString()
-        camMark = element.LookupParameter('Mark').AsString()
-        camNum = "{}-{}-{}".format(
-                levelId, buildingSector, camMark
-            )
+        camId         = element.Id
+        levelId       = _get_camera_param(element, 'LEVEL ID')
+        buildingSector = _get_camera_param(element, 'BUILDING SECTOR')
+        camMark       = _get_camera_param(element, 'Mark')
+        camNum = "{}-{}-{}".format(levelId, buildingSector, camMark)
         prompt = "The data for security camera {} are:\n".format(camNum)
-        # Extract the location of the FamilyInstance
         location = element.Location
         if isinstance(location, LocationPoint):
-            point = location.Point
-            transform = location.Rotation
-            # Convert rotation from radians to degrees
-            rotation_degrees = transform * (180 / 3.14159265358979)
-            # Format and print the location and rotation details using .format() for IronPython compatibility
+            point            = location.Point
+            rotation_degrees = location.Rotation * (180.0 / math.pi)
             prompt += "Id: {}, Cam#: {}, Name: {}, Location: (X: {:.2f}, Y: {:.2f}, Z: {:.2f}), Rotation: {:.2f} degrees\n".format(
                 camId, camNum, element.Name, point.X, point.Y, point.Z, rotation_degrees
             )
         else:
-            # If location is not a point, handle accordingly
             prompt += "Name: {}, Location: Not a point, Rotation: Not available\n".format(element.Name)
     else:
-        # Handle cases where the element is not a FamilyInstance
-        prompt += "Element ID: {}, Type: {}\n".format(element.Id, element.GetType().Name)
+        prompt = "Element ID: {}, Type: {}\n".format(element.Id, element.GetType().Name)
     return prompt
 
 # Generates wrapper for list items in camera selection dialog
@@ -152,10 +114,10 @@ class listOption(forms.TemplateListItem):
     @property
     def name(self):
         return "Option: {}-{}-{}".format(
-            self.item.LookupParameter('LEVEL ID').AsString(),
-            self.item.LookupParameter('BUILDING SECTOR').AsString(),
-            self.item.LookupParameter('Mark').AsString()
-            )
+            _get_camera_param(self.item, 'LEVEL ID'),
+            _get_camera_param(self.item, 'BUILDING SECTOR'),
+            _get_camera_param(self.item, 'Mark'),
+        )
 # Generates dialog for selecting camera by number
 camsInProject = camera_Collector()
 ops = [listOption(element) for element in camsInProject]
@@ -166,6 +128,9 @@ select_cam = forms.SelectFromList.show(ops,
                                        button_name='Select Camera'
                                        ) 
 
-print(print_single_camdata(select_cam))
+if not select_cam:
+    forms.alert("No camera selected.", title=__title__)
+else:
+    print(print_single_camdata(select_cam))
 
 #==================================================

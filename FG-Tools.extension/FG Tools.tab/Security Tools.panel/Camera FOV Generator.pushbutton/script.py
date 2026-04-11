@@ -71,6 +71,3 @@ def collect_fg_camera_instances(doc):
     return fg_cameras
 
 collect_fg_camera_instances(doc)
-
-#==================================================
-#🚫 DELETE BELOW

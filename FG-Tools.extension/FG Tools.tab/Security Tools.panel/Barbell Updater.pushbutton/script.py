@@ -52,7 +52,10 @@ import clr
 clr.AddReference('System')
 from System.Collections.Generic import List
 from pyrevit import forms, script, revit
-from System.Windows.Controls import SelectionMode  # Add this import
+from System.Windows.Controls import SelectionMode
+
+# Shared FG-Tools utilities
+from fg_param_utils import get_param_string
 
 # ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
 # ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
@@ -101,14 +104,6 @@ if not selected_model_names or not barbell_family_name:
     forms.alert("Operation cancelled by user.", title="Cancelled")
     script.exit()
 
-"""
-Checks if there is more than one intersecting door for a given barbell.
-Raises an exception if more than one door is found.
-"""
-def check_OnetoOne(barbell, intersecting_doors):
-    if len(intersecting_doors) > 1:
-        raise Exception("More than one door found for FG-ACS DOOR BARBELL instance: {}".format(barbell.Id))
-
 class IntersectingPairsReview(forms.WPFWindow):
     def __init__(self, pairs_lines):
         forms.WPFWindow.__init__(self, 'review_dialog.xaml')
@@ -150,7 +145,7 @@ Checks for intersections between doors and barbells.
 If more than one door intersects with a barbell, chooses the closest door.
 Returns a list of intersecting door and barbell pairs.
 """
-def check_intersection(doc, check_OnetoOne, linked_doc, doors, barbells):
+def check_intersection(linked_doc, doors, barbells):
     intersecting_pairs = []
     for barbell in barbells:
         intersecting_doors = []
@@ -202,7 +197,7 @@ if selected_model_names:
     # Create sets of intersecting Door and FG-ACS DOOR BARBELL pairs
     intersecting_pairs = []
     for linked_doc in linked_docs:
-        intersecting_pairs.extend(check_intersection(doc, check_OnetoOne, linked_doc, doors_by_doc.get(linked_doc, []), barbells))
+        intersecting_pairs.extend(check_intersection(linked_doc, doors_by_doc.get(linked_doc, []), barbells))
 
     # Show a dialog with the intersecting pairs found and allow user to confirm selection
     if intersecting_pairs:
@@ -231,10 +226,10 @@ if selected_model_names:
     # Filter pairs with mismatching marks and DOOR IDs
     mismatching_pairs = []
     for door, barbell in intersecting_pairs:
-        door_mark = door.LookupParameter("Mark").AsString()
-        door_id_params = [param for param in barbell.Parameters if param.Definition.Name == "DOOR ID"]
-        for param in door_id_params:
-            current_door_id = param.AsString()
+        door_mark    = get_param_string(door, "Mark")
+        door_id_param = barbell.LookupParameter("DOOR ID")
+        if door_id_param:
+            current_door_id = door_id_param.AsString() or ""
             if current_door_id != door_mark:
                 mismatching_pairs.append((door, barbell, current_door_id, door_mark))
 
@@ -247,16 +242,16 @@ if selected_model_names:
             script.exit()
 
         # Process the selected pairs
-        selected_pairs = [mismatching_pairs[items.index(item)] for item in selected_items]
-        updated_pairs = []
+        item_to_pair   = {label: pair for label, pair in zip(items, mismatching_pairs)}
+        selected_pairs = [item_to_pair[item] for item in selected_items]
+        updated_pairs  = []
         with Transaction(doc, "Update DOOR ID parameters") as t:
             t.Start()
             for door, barbell, current_door_id, door_mark in selected_pairs:
-                door_id_params = [param for param in barbell.Parameters if param.Definition.Name == "DOOR ID"]
-                for param in door_id_params:
-                    if param.AsString() != door_mark:
-                        param.Set(door_mark)
-                        updated_pairs.append((current_door_id, door_mark, barbell.Id))
+                door_id_param = barbell.LookupParameter("DOOR ID")
+                if door_id_param and door_id_param.AsString() != door_mark:
+                    door_id_param.Set(door_mark)
+                    updated_pairs.append((current_door_id, door_mark, barbell.Id))
             t.Commit()
 
         # Print out the list of updated DOOR ID values and corresponding FG-ACS DOOR BARBELL element IDs

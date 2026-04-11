@@ -23,8 +23,6 @@ from Autodesk.Revit.DB import (
     ElementId,
     FamilyInstance,
     FilteredElementCollector,
-    LocationCurve,
-    LocationPoint,
     Phase,
     PhaseFilter,
     ScheduleFieldType,
@@ -38,19 +36,18 @@ from Autodesk.Revit.DB import (
 import re
 from pyrevit import forms, revit, script
 
+# Shared FG-Tools utilities
+from fg_constants import DATA_OUTLET_CATEGORIES, VALID_SECTORS
+from fg_string_utils import safe_string, normalize
+from fg_param_utils import get_param_string_with_type_fallback
+from fg_element_utils import get_probe_point
 
-doc = revit.doc
+doc    = revit.doc
 logger = script.get_logger()
 
 
-DATA_OUTLET_CATEGORY = BuiltInCategory.OST_DataDevices
-DATA_OUTLET_CATEGORIES = [
-    BuiltInCategory.OST_DataDevices,
-    BuiltInCategory.OST_CommunicationDevices,
-    BuiltInCategory.OST_ElectricalFixtures,
-]
+DATA_OUTLET_CATEGORY  = BuiltInCategory.OST_DataDevices
 SCHEDULE_NAME_PATTERN = re.compile(r"^TELECOM\s*-\s*(.+?)\s*-\s*(L\d+)\s*/\s*(5[A-G])$", re.IGNORECASE)
-VALID_SECTORS = set(["5A", "5B", "5C", "5D", "5E", "5F", "5G"])
 
 PARAM_SPACE_NUMBER = ["Space Number", "SPACE NUMBER", "Space: Number", "SPACE: NUMBER"]
 PARAM_LEVEL_ID = ["LEVEL ID", "Level ID", "LEVEL_ID"]
@@ -84,62 +81,18 @@ def _get_revit_year():
         return 0
 
 
-def _text(value):
-    if value is None:
-        return ""
-    return "{0}".format(value).strip()
-
-
-def _normalize(value):
-    return _text(value).upper()
-
-
 def _parse_level_sort_key(level_text):
-    match = re.match(r"^L(\d+)$", _normalize(level_text))
+    match = re.match(r"^L(\d+)$", normalize(level_text))
     if not match:
-        return (9999, _normalize(level_text))
-    return (int(match.group(1)), _normalize(level_text))
+        return (9999, normalize(level_text))
+    return (int(match.group(1)), normalize(level_text))
 
 
-def _get_param_text(element, param_name_candidates):
-    # Read instance first, then fallback to type parameters if needed.
-    for name in param_name_candidates:
-        try:
-            param = element.LookupParameter(name)
-            if not param:
-                continue
-            value = param.AsString() or param.AsValueString()
-            value = _text(value)
-            if value:
-                return value
-        except Exception:
-            continue
-
-    type_element = None
-    try:
-        type_id = element.GetTypeId()
-        if type_id and type_id != ElementId.InvalidElementId:
-            type_element = doc.GetElement(type_id)
-    except Exception:
-        type_element = None
-
-    if type_element:
-        for name in param_name_candidates:
-            try:
-                param = type_element.LookupParameter(name)
-                if not param:
-                    continue
-                value = param.AsString() or param.AsValueString()
-                value = _text(value)
-                if value:
-                    return value
-            except Exception:
-                continue
-
-    return ""
+def _get_paramsafe_string(element, param_name_candidates):
+    return get_param_string_with_type_fallback(element, param_name_candidates, doc)
 
 
-def _get_built_in_param_text(element, builtin_param_names):
+def _get_built_in_paramsafe_string(element, builtin_param_names):
     for builtin_name in builtin_param_names:
         try:
             builtin_param = getattr(BuiltInParameter, builtin_name, None)
@@ -151,7 +104,7 @@ def _get_built_in_param_text(element, builtin_param_names):
                 continue
 
             value = param.AsString() or param.AsValueString()
-            value = _text(value)
+            value = safe_string(value)
             if value:
                 return value
         except Exception:
@@ -174,7 +127,7 @@ def _get_phase_candidates():
 def _get_space_number_from_space(space):
     if not space:
         return ""
-    return _text(getattr(space, "Number", ""))
+    return safe_string(getattr(space, "Number", ""))
 
 
 def _get_space_number_from_family_instance(element):
@@ -199,22 +152,8 @@ def _get_space_number_from_family_instance(element):
     return ""
 
 
-def _get_element_probe_point(element):
-    try:
-        location = element.Location
-        if isinstance(location, LocationPoint):
-            return location.Point
-        if isinstance(location, LocationCurve):
-            curve = location.Curve
-            if curve:
-                return curve.Evaluate(0.5, True)
-    except Exception:
-        return None
-    return None
-
-
 def _get_space_number_from_doc_lookup(element):
-    point = _get_element_probe_point(element)
+    point = get_probe_point(element)
     if not point:
         return ""
 
@@ -238,7 +177,7 @@ def _get_space_number_from_doc_lookup(element):
     return ""
 
 
-def _get_space_number_text(element):
+def _get_space_numbersafe_string(element):
     number_value = _get_space_number_from_family_instance(element)
     if number_value:
         return number_value
@@ -247,11 +186,11 @@ def _get_space_number_text(element):
     if number_value:
         return number_value
 
-    value = _get_built_in_param_text(element, SPACE_NUMBER_BUILTIN_CANDIDATES)
+    value = _get_built_in_paramsafe_string(element, SPACE_NUMBER_BUILTIN_CANDIDATES)
     if value:
         return value
 
-    return _get_param_text(element, PARAM_SPACE_NUMBER)
+    return _get_paramsafe_string(element, PARAM_SPACE_NUMBER)
 
 
 def _collect_data_outlets():
@@ -289,9 +228,9 @@ def _collect_combo_counts(elements):
 
     for element in elements:
         stats["total"] += 1
-        tr_value = _get_space_number_text(element)
-        level_id = _normalize(_get_param_text(element, PARAM_LEVEL_ID))
-        building_sector = _normalize(_get_param_text(element, PARAM_BUILDING_SECTOR))
+        tr_value = _get_space_numbersafe_string(element)
+        level_id = normalize(_get_paramsafe_string(element, PARAM_LEVEL_ID))
+        building_sector = normalize(_get_paramsafe_string(element, PARAM_BUILDING_SECTOR))
 
         if not tr_value:
             stats["missing_tr"] += 1
@@ -322,7 +261,7 @@ def _collect_combo_counts(elements):
 
 
 def _build_schedule_name(tr_value, level_id, building_sector):
-    return "TELECOM - {0} - {1} / {2}".format(_text(tr_value), _normalize(level_id), _normalize(building_sector))
+    return "TELECOM - {0} - {1} / {2}".format(safe_string(tr_value), normalize(level_id), normalize(building_sector))
 
 
 def _collect_existing_managed_schedules():
@@ -340,7 +279,7 @@ def _collect_existing_managed_schedules():
         except Exception:
             continue
 
-        name = _text(schedule.Name)
+        name = safe_string(schedule.Name)
         if SCHEDULE_NAME_PATTERN.match(name):
             existing[name] = schedule
 
@@ -348,7 +287,7 @@ def _collect_existing_managed_schedules():
 
 
 def _find_named_element(element_class, name_text):
-    target = _normalize(name_text)
+    target = normalize(name_text)
     if not target:
         return None
 
@@ -358,7 +297,7 @@ def _find_named_element(element_class, name_text):
         return None
 
     for element in elements:
-        if _normalize(getattr(element, "Name", "")) == target:
+        if normalize(getattr(element, "Name", "")) == target:
             return element
 
     return None
@@ -369,7 +308,7 @@ def _set_text_parameter(element, param_name, param_value):
         parameter = element.LookupParameter(param_name)
         if not parameter or parameter.IsReadOnly:
             return False
-        return parameter.Set(_text(param_value))
+        return parameter.Set(safe_string(param_value))
     except Exception:
         return False
 
@@ -416,10 +355,10 @@ def _get_schedule_outlet_count(schedule_view):
 
 
 def _find_schedulable_field(definition, target_names):
-    desired = set([_normalize(x) for x in target_names])
+    desired = set([normalize(x) for x in target_names])
     for schedulable in definition.GetSchedulableFields():
         try:
-            field_name = _normalize(schedulable.GetName(doc))
+            field_name = normalize(schedulable.GetName(doc))
             if field_name in desired:
                 return schedulable
         except Exception:
@@ -428,14 +367,14 @@ def _find_schedulable_field(definition, target_names):
 
 
 def _add_visible_field(definition, target_names):
-    desired = set([_normalize(x) for x in target_names])
+    desired = set([normalize(x) for x in target_names])
 
     try:
         for field_id in definition.GetFieldOrder():
             existing_field = definition.GetField(field_id)
             if not existing_field:
                 continue
-            if _normalize(existing_field.GetName()) in desired:
+            if normalize(existing_field.GetName()) in desired:
                 return existing_field
     except Exception:
         pass
@@ -474,11 +413,6 @@ def _try_add_filter(definition, schedule_field, filter_type, filter_value=None):
         return False
 
 
-def _try_add_sort_by_field(definition, schedule_field):
-    if not schedule_field:
-        return False
-
-
 def _try_add_data_ports_exists_filter(definition, schedule_field):
     if not schedule_field:
         return False
@@ -489,12 +423,6 @@ def _try_add_data_ports_exists_filter(definition, schedule_field):
     # Some API versions expose this condition as HasValue instead.
     try:
         return _try_add_filter(definition, schedule_field, ScheduleFilterType.HasValue)
-    except Exception:
-        return False
-
-    try:
-        definition.AddSortGroupField(ScheduleSortGroupField(schedule_field.FieldId))
-        return True
     except Exception:
         return False
 
@@ -545,12 +473,10 @@ def _configure_schedule(schedule_view, tr_value, level_id, building_sector):
     filter_outlet_type_field = _add_visible_field(definition, PARAM_OUTLET_TYPE)
 
     _try_add_data_ports_exists_filter(definition, filter_data_ports_field)
-    _try_add_filter(definition, filter_space_field, ScheduleFilterType.Equal, _text(tr_value))
+    _try_add_filter(definition, filter_space_field, ScheduleFilterType.Equal, safe_string(tr_value))
     _try_add_filter(definition, filter_outlet_type_field, ScheduleFilterType.NotContains, "TSA")
-    _try_add_filter(definition, filter_sector_field, ScheduleFilterType.Equal, _normalize(building_sector))
-    _try_add_filter(definition, filter_level_field, ScheduleFilterType.Equal, _normalize(level_id))
-
-    _try_add_sort_by_field(definition, outlet_type_field)
+    _try_add_filter(definition, filter_sector_field, ScheduleFilterType.Equal, normalize(building_sector))
+    _try_add_filter(definition, filter_level_field, ScheduleFilterType.Equal, normalize(level_id))
 
     if not outlet_type_field:
         logger.warning("Schedule missing Outlet Type field: {0}".format(schedule_view.Name))
@@ -643,7 +569,7 @@ if __name__ == '__main__':
 
     sorted_combos = sorted(
         combo_counts.items(),
-        key=lambda kv: (_normalize(kv[0][0]), _parse_level_sort_key(kv[0][1]), _normalize(kv[0][2])),
+        key=lambda kv: (normalize(kv[0][0]), _parse_level_sort_key(kv[0][1]), normalize(kv[0][2])),
     )
 
     for combo_key, outlet_count in sorted_combos:
